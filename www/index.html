@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e0e12">
+<title>MeuIPTV</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="login-logo">Meu<span>IPTV</span></div>
+    <p class="login-sub">Entre com os dados do seu servidor Xtream Codes</p>
+
+    <form id="login-form" autocomplete="off" novalidate>
+      <div class="field">
+        <label for="inp-server">Servidor</label>
+        <input id="inp-server" type="url" inputmode="url" placeholder="http://servidor:8080" required>
+      </div>
+      <div class="field">
+        <label for="inp-user">Usuário</label>
+        <input id="inp-user" type="text" placeholder="usuario" required>
+      </div>
+      <div class="field">
+        <label for="inp-pass">Senha</label>
+        <input id="inp-pass" type="password" placeholder="senha" required>
+      </div>
+      <button type="submit" id="btn-login" class="btn-primary">Entrar</button>
+    </form>
+
+    <div id="login-error" class="error-box" hidden></div>
+
+    <div id="login-loading" class="loading-box" hidden>
+      <div class="spinner"></div>
+      <span>Conectando ao servidor...</span>
+    </div>
+
+    <p class="login-foot">Use apenas listas/servidores que você tem autorização.</p>
+  </div>
+</div>
+
+<div id="screen-app" class="screen">
+  <header id="topbar">
+    <div class="brand">Meu<span>IPTV</span></div>
+    <div id="view-title" class="view-title">Canais</div>
+  </header>
+
+  <main id="content">
+    <section id="view-canais"    class="view active"></section>
+    <section id="view-filmes"    class="view"></section>
+    <section id="view-series"    class="view"></section>
+    <section id="view-favoritos" class="view"></section>
+    <section id="view-pesquisa"  class="view"></section>
+    <section id="view-config"    class="view"></section>
+    <section id="view-serie-detail" class="view"></section>
+  </main>
+
+  <nav id="bottom-nav">
+    <button class="nav-btn active" data-view="canais"><span>📺</span><small>Canais</small></button>
+    <button class="nav-btn" data-view="filmes"><span>🎬</span><small>Filmes</small></button>
+    <button class="nav-btn" data-view="series"><span>📽️</span><small>Séries</small></button>
+    <button class="nav-btn" data-view="favoritos"><span>⭐</span><small>Favoritos</small></button>
+    <button class="nav-btn" data-view="pesquisa"><span>🔍</span><small>Busca</small></button>
+    <button class="nav-btn" data-view="config"><span>⚙️</span><small>Config</small></button>
+  </nav>
+</div>
+
+<div id="player-overlay" class="overlay hidden">
+  <div class="player-wrap">
+    <div class="player-head">
+      <button id="player-close" class="btn-close" aria-label="Voltar">←</button>
+      <div id="player-title" class="player-title"></div>
+      <button id="player-fs" class="btn-close" aria-label="Tela cheia">⛶</button>
+    </div>
+    <div class="video-holder">
+      <video id="video" controls playsinline preload="auto" crossorigin="anonymous"></video>
+    </div>
+    <div id="player-error" class="player-error" hidden></div>
+  </div>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/api.js"></script>
+<script src="js/player.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
