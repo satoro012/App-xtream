@@ -501,3 +501,10 @@
   }
   document.addEventListener('DOMContentLoaded', init);
 })();
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('boot-splash');
+    if (splash) splash.style.display = 'none';
+  }, 500);
+});
