@@ -29,7 +29,6 @@ const ConfigLoader = (() => {
       return true;
     } catch (err) {
       console.error('Falha ao carregar config do painel:', err);
-      // Tenta usar o último cache salvo (app funciona offline/painel fora do ar)
       const cache = carregarCache();
       if (cache) {
         tenantConfig = cache.public;
@@ -44,14 +43,21 @@ const ConfigLoader = (() => {
   function aplicarVisual(config) {
     if (!config) return;
 
-    // Logo
-    if (config.logo_url) {
-      document.querySelectorAll('.app-logo, #boot-splash .app-logo-img').forEach(el => {
-        if (el.tagName === 'IMG') el.src = config.logo_url;
-      });
-    }
+    const temLogo = !!config.logo_url;
 
-    // Nome do app
+    document.querySelectorAll('.app-logo, .app-logo-img').forEach(img => {
+      if (temLogo) {
+        img.src = config.logo_url;
+        img.style.display = '';
+      } else {
+        img.style.display = 'none';
+      }
+    });
+
+    document.querySelectorAll('.boot-logo-fallback, .login-logo-fallback').forEach(el => {
+      el.style.display = temLogo ? 'none' : '';
+    });
+
     if (config.client_name) {
       document.querySelectorAll('.app-name-label').forEach(el => {
         el.textContent = config.client_name;
@@ -59,7 +65,6 @@ const ConfigLoader = (() => {
       document.title = config.client_name;
     }
 
-    // Cores
     if (config.colors) {
       const root = document.documentElement;
       if (config.colors.bg) root.style.setProperty('--app-bg', config.colors.bg);
@@ -68,27 +73,18 @@ const ConfigLoader = (() => {
   }
 
   function salvarCache(data) {
-    try {
-      localStorage.setItem('tenant_config_cache', JSON.stringify(data));
-    } catch (e) {}
+    try { localStorage.setItem('tenant_config_cache', JSON.stringify(data)); } catch (e) {}
   }
 
   function carregarCache() {
     try {
       const raw = localStorage.getItem('tenant_config_cache');
       return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
-  function getXtreamServer() {
-    return xtreamServer;
-  }
-
-  function getConfig() {
-    return tenantConfig;
-  }
+  function getXtreamServer() { return xtreamServer; }
+  function getConfig() { return tenantConfig; }
 
   return { carregar, getXtreamServer, getConfig };
 })();
