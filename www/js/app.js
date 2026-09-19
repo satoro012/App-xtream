@@ -30,11 +30,11 @@
 
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault(); clearError();
-      const server = $('#inp-server').value.trim();
+      const server = ConfigLoader.getXtreamServer();
       const user   = $('#inp-user').value.trim();
       const pass   = $('#inp-pass').value;
-      if (!server || !user || !pass) { showError('Preencha todos os campos.'); return; }
-      if (!/^https?:\/\//i.test(server)) { showError('O servidor deve começar com http:// ou https://'); return; }
+      if (!server) { showError('Configuração do app não carregada. Verifique sua conexão e tente novamente.'); return; }
+      if (!user || !pass) { showError('Preencha usuário e senha.'); return; }
       API.setCredentials(server, user, pass);
       setLoading(true);
       try {
