@@ -31,3 +31,11 @@
   };
   window.API = API;
 })();
+
+/**
+ * Sobrescreve a função que monta a URL do servidor:
+ * agora vem do ConfigLoader (painel), não mais digitado pelo usuário.
+ */
+function getServidorConfigurado() {
+  return ConfigLoader.getXtreamServer();
+}

@@ -508,3 +508,11 @@ window.addEventListener('load', () => {
     if (splash) splash.style.display = 'none';
   }, 500);
 });
+
+// Carrega config do painel (logo, cor, servidor) antes de iniciar o app
+document.addEventListener('DOMContentLoaded', async () => {
+  const ok = await ConfigLoader.carregar();
+  if (!ok) {
+    console.warn('Não foi possível carregar configuração do cliente.');
+  }
+});
