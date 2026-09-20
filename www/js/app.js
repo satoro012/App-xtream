@@ -10,10 +10,10 @@
     return function () { const a = arguments, self = this; clearTimeout(t); t = setTimeout(() => fn.apply(self, a), ms); };
   }
   const APP_VERSION = '1.0.0';
-  const CW_KEY = 'mvi_continue';
+  const CW_KEY = 'mvi_continue_v2';
 
   const state = {
-    view: 'canais',
+    view: 'inicio',
     live:   { categories: [], streams: [], filterCat: '', search: '' },
     vod:    { categories: [], streams: [], filterCat: '', search: '' },
     series: { categories: [], streams: [], filterCat: '', search: '' },
@@ -22,53 +22,41 @@
     lastSeriesId: null
   };
 
-  function recordContinueWatching(kind, id, name, icon) {
-    try {
-      let list = JSON.parse(localStorage.getItem(CW_KEY) || '[]');
-      const sid = String(id);
-      list = list.filter(x => !(x.kind === kind && String(x.id) === sid));
-      list.unshift({ kind, id: sid, name: name || '', icon: icon || '', ts: Date.now() });
-      list = list.slice(0, 24);
-      localStorage.setItem(CW_KEY, JSON.stringify(list));
-    } catch (e) {}
+  // ---------- Continuar assistindo (posição real via player nativo) ----------
+  function getCwList() {
+    try { return JSON.parse(localStorage.getItem(CW_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCwList(list) {
+    try { localStorage.setItem(CW_KEY, JSON.stringify(list.slice(0, 30))); } catch (e) {}
+  }
+  function getCwEntry(key) {
+    return getCwList().find(x => x.key === key) || null;
+  }
+  function upsertCwEntry(entry) {
+    let list = getCwList().filter(x => x.key !== entry.key);
+    list.unshift(entry);
+    saveCwList(list);
+  }
+  function updateCwProgress(key, positionMs, durationMs) {
+    const list = getCwList();
+    const idx = list.findIndex(x => x.key === key);
+    if (idx === -1) return;
+    list[idx].positionMs = positionMs;
+    if (durationMs) list[idx].durationMs = durationMs;
+    list[idx].ts = Date.now();
+    saveCwList(list);
+  }
+  function removeCwEntry(key) {
+    saveCwList(getCwList().filter(x => x.key !== key));
   }
 
-  function getContinueWatching(kind) {
-    try {
-      const list = JSON.parse(localStorage.getItem(CW_KEY) || '[]');
-      return list.filter(x => x.kind === kind);
-    } catch (e) { return []; }
+  function handleProgress(data) {
+    if (!data || !data.itemKey) return;
+    updateCwProgress(data.itemKey, data.positionMs || 0, data.durationMs || 0);
   }
-
-  function continueRowHTML(kind, containerId) {
-    const list = getContinueWatching(kind);
-    if (!list.length) return '';
-    const fallback = kind === 'vod' ? '🎬' : '📽️';
-    const cards = list.map(it => `
-      <div class="cw-card" data-cwid="${esc(it.id)}" tabindex="0">
-        <div class="cw-img">
-          ${it.icon ? `<img src="${esc(it.icon)}" loading="lazy" onerror="this.style.display='none'">` : ''}
-          <div class="cw-fallback">${fallback}</div>
-        </div>
-        <div class="cw-title">${esc(it.name)}</div>
-      </div>`).join('');
-    return `
-      <div class="cw-row" id="${containerId}">
-        <div class="cw-heading">Continuar assistindo</div>
-        <div class="cw-scroll">${cards}</div>
-      </div>`;
-  }
-
-  function wireContinueRow(containerId, kind) {
-    const el = $('#' + containerId);
-    if (!el) return;
-    el.addEventListener('click', (ev) => {
-      const card = ev.target.closest('.cw-card');
-      if (!card) return;
-      const id = card.dataset.cwid;
-      if (kind === 'vod') playVod(id, card.querySelector('.cw-title').textContent);
-      else openSeriesDetail(id);
-    });
+  function handleEnded(data) {
+    if (!data || !data.itemKey) return;
+    removeCwEntry(data.itemKey);
   }
 
   function bindLogin() {
@@ -118,7 +106,7 @@
     showContentLoading(true);
     await loadAllContent();
     showContentLoading(false);
-    switchView('canais');
+    switchView('inicio');
   }
 
   function showContentLoading(show) {
@@ -140,7 +128,8 @@
   }
 
   const VIEW_TITLES = {
-    canais: 'Canais', filmes: 'Filmes', series: 'Séries',
+    inicio: 'Início', canais: 'Canais', filmes: 'Filmes', series: 'Séries',
+    continuar: 'Continuar assistindo',
     favoritos: 'Favoritos', pesquisa: 'Pesquisa', config: 'Configurações',
     'serie-detail': 'Série'
   };
@@ -157,9 +146,11 @@
     const el = $('#view-' + name); if (el) el.classList.add('active');
     $('#view-title').textContent = VIEW_TITLES[name] || '';
     $$('#bottom-nav .nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+    if (name === 'inicio')    renderInicio();
     if (name === 'canais')    renderCanais();
     if (name === 'filmes')    renderFilmes();
     if (name === 'series')    renderSeries();
+    if (name === 'continuar') renderContinuar();
     if (name === 'favoritos') renderFavoritos();
     if (name === 'pesquisa')  renderPesquisa();
     if (name === 'config')    renderConfig();
@@ -246,6 +237,22 @@
       </div>`;
   }
 
+  function cwCard(it) {
+    const pct = it.durationMs ? Math.min(100, Math.round((it.positionMs / it.durationMs) * 100)) : 0;
+    return `
+      <div class="card" data-cwkey="${esc(it.key)}" tabindex="0">
+        <div class="card-img">
+          ${it.icon ? `<img src="${esc(it.icon)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div class="card-fallback">▶️</div>
+          <div class="cw-progress"><div class="cw-progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">${esc(it.title)}</div>
+          <div class="card-sub">${esc(it.subtitle || 'Continuar')}</div>
+        </div>
+      </div>`;
+  }
+
   function filterList(list, filterCat, query) {
     const q = (query || '').toLowerCase().trim();
     return list.filter(item => {
@@ -286,6 +293,42 @@
     return { id: item.series_id, name: item.name, icon: item.cover, category_id: item.category_id };
   }
 
+  // ---------- Início ----------
+  function renderInicio() {
+    const el = $('#view-inicio');
+    el.innerHTML = `
+      <div class="home-wrap">
+        <div class="home-grid">
+          <div class="home-card" data-go="canais"><div class="hc-icon">📺</div><div class="hc-label">Canais</div></div>
+          <div class="home-card" data-go="filmes"><div class="hc-icon">🎬</div><div class="hc-label">Filmes</div></div>
+          <div class="home-card" data-go="series"><div class="hc-icon">📽️</div><div class="hc-label">Séries</div></div>
+          <div class="home-card hc-continuar" data-go="continuar"><div class="hc-icon">▶️</div><div class="hc-label">Continuar assistindo</div></div>
+        </div>
+      </div>`;
+    el.querySelectorAll('.home-card').forEach(c => {
+      c.addEventListener('click', () => switchView(c.dataset.go));
+    });
+  }
+
+  // ---------- Continuar assistindo ----------
+  function renderContinuar() {
+    const el = $('#view-continuar');
+    const list = getCwList();
+    if (!list.length) {
+      el.innerHTML = '<div class="empty">Nada para continuar assistindo ainda.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="grid" id="continuar-grid">${list.map(cwCard).join('')}</div>`;
+    const grid = $('#continuar-grid');
+    grid.addEventListener('click', (ev) => {
+      const card = ev.target.closest('.card'); if (!card) return;
+      const key = card.dataset.cwkey;
+      const entry = getCwEntry(key);
+      if (!entry) return;
+      Player.open(entry.url, entry.title, { isLive: false, key: entry.key, startPositionMs: entry.positionMs || 0 });
+    });
+  }
+
   function renderCanais() {
     const el = $('#view-canais');
     el.innerHTML = `
@@ -311,14 +354,12 @@
   function renderFilmes() {
     const el = $('#view-filmes');
     el.innerHTML = `
-      ${continueRowHTML('vod', 'filmes-cw')}
       <div class="toolbar">
         <input type="search" class="search-inp" id="filmes-search" placeholder="Buscar filme..." value="${esc(state.vod.search)}">
         <div class="cat-bar" id="filmes-cats"></div>
       </div>
       <div class="grid" id="filmes-grid"></div>
       <div class="empty" id="filmes-empty" hidden>Nenhum filme encontrado.</div>`;
-    wireContinueRow('filmes-cw', 'vod');
     renderCatBar('#filmes-cats', state.vod.categories, state.vod.filterCat, (cat) => { state.vod.filterCat = cat; renderFilmes(); });
     renderFilmesGrid();
     $('#filmes-search').addEventListener('input', debounce((e) => { state.vod.search = e.target.value; renderFilmesGrid(); }, 220));
@@ -335,14 +376,12 @@
   function renderSeries() {
     const el = $('#view-series');
     el.innerHTML = `
-      ${continueRowHTML('series', 'series-cw')}
       <div class="toolbar">
         <input type="search" class="search-inp" id="series-search" placeholder="Buscar série..." value="${esc(state.series.search)}">
         <div class="cat-bar" id="series-cats"></div>
       </div>
       <div class="grid" id="series-grid"></div>
       <div class="empty" id="series-empty" hidden>Nenhuma série encontrada.</div>`;
-    wireContinueRow('series-cw', 'series');
     renderCatBar('#series-cats', state.series.categories, state.series.filterCat, (cat) => { state.series.filterCat = cat; renderSeries(); });
     renderSeriesGrid();
     $('#series-search').addEventListener('input', debounce((e) => { state.series.search = e.target.value; renderSeriesGrid(); }, 220));
@@ -411,10 +450,19 @@
       }).join('') || '<div class="empty">Sem episódios.</div>';
       epList.querySelectorAll('.ep-item').forEach(item => {
         item.addEventListener('click', () => {
-          const url = API.seriesUrl(item.dataset.ep, item.dataset.ext);
-          const label = (title ? title + ' — ' : '') + item.querySelector('span').textContent;
-          recordContinueWatching('series', seriesId, title || label, cover);
-          Player.open(url, label, null, false);
+          const epId = item.dataset.ep, ext = item.dataset.ext;
+          const url = API.seriesUrl(epId, ext);
+          const epLabel = item.querySelector('span').textContent;
+          const label = (title ? title + ' — ' : '') + epLabel;
+          const key = 'ep:' + epId;
+          const existing = getCwEntry(key);
+          const startPositionMs = existing ? existing.positionMs : 0;
+          upsertCwEntry({
+            key, title: title || 'Série', subtitle: epLabel, icon: cover,
+            url, positionMs: startPositionMs,
+            durationMs: existing ? existing.durationMs : 0, ts: Date.now()
+          });
+          Player.open(url, label, { isLive: false, key, startPositionMs });
         });
       });
     }
@@ -425,7 +473,7 @@
     if (seasonKeys.length) showSeason(seasonKeys[0]);
   }
 
-  function playLive(id, title) { Player.open(API.liveUrl(id), title || 'Canal ao vivo', null, true); }
+  function playLive(id, title) { Player.open(API.liveUrl(id), title || 'Canal ao vivo', { isLive: true }); }
 
   async function playVod(id, title) {
     let ext = 'mp4';
@@ -433,8 +481,16 @@
     if (item && item.container_extension) ext = item.container_extension;
     else { try { const info = await API.getVodInfo(id); if (info && info.movie_data && info.movie_data.container_extension) ext = info.movie_data.container_extension; } catch (e) {} }
     const icon = item ? (item.stream_icon || item.cover || '') : '';
-    recordContinueWatching('vod', id, title || (item && item.name) || 'Filme', icon);
-    Player.open(API.vodUrl(id, ext), title || 'Filme', null, false);
+    const url = API.vodUrl(id, ext);
+    const key = 'vod:' + id;
+    const existing = getCwEntry(key);
+    const startPositionMs = existing ? existing.positionMs : 0;
+    upsertCwEntry({
+      key, title: title || (item && item.name) || 'Filme', subtitle: 'Filme', icon,
+      url, positionMs: startPositionMs,
+      durationMs: existing ? existing.durationMs : 0, ts: Date.now()
+    });
+    Player.open(url, title || 'Filme', { isLive: false, key, startPositionMs });
   }
 
   function renderFavoritos() {
@@ -559,7 +615,7 @@
       window.Capacitor.Plugins.App.addListener('backButton', () => {
         if (!$('#player-overlay').classList.contains('hidden')) { Player.close(); return; }
         if (state.view === 'serie-detail') { switchView('series'); return; }
-        if (state.view !== 'canais') { switchView('canais'); return; }
+        if (state.view !== 'inicio') { switchView('inicio'); return; }
         window.Capacitor.Plugins.App.exitApp();
       });
     }
@@ -577,6 +633,8 @@
     const cfgOk = await ConfigLoader.carregar();
     if (!cfgOk) console.warn('Não foi possível carregar configuração do cliente.');
     Player.init();
+    Player.onProgress(handleProgress);
+    Player.onEnded(handleEnded);
     bindLogin();
     bindNav();
     bindBackButton();
