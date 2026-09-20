@@ -44,7 +44,9 @@ const ConfigLoader = (() => {
     if (!config) return;
 
     const temLogo = !!config.logo_url;
+    const nome = config.client_name || 'MeuIPTV';
 
+    // Imagem da logo (só aparece se o cliente tiver logo)
     document.querySelectorAll('.app-logo, .app-logo-img').forEach(img => {
       if (temLogo) {
         img.src = config.logo_url;
@@ -54,16 +56,23 @@ const ConfigLoader = (() => {
       }
     });
 
+    // "Logo de texto" (MeuIPTV grande) — só aparece quando NÃO tem logo de imagem
     document.querySelectorAll('.boot-logo-fallback, .login-logo-fallback').forEach(el => {
       el.style.display = temLogo ? 'none' : '';
+      el.textContent = nome;
     });
 
-    if (config.client_name) {
-      document.querySelectorAll('.app-name-label').forEach(el => {
-        el.textContent = config.client_name;
-      });
-      document.title = config.client_name;
-    }
+    // Legenda do nome embaixo da logo — sempre visível quando tem logo de imagem
+    document.querySelectorAll('.app-name-caption').forEach(el => {
+      el.textContent = nome;
+      el.style.display = temLogo ? '' : 'none';
+    });
+
+    // Nome usado em outros pontos do app (topo, título da aba, etc)
+    document.querySelectorAll('.app-name-label').forEach(el => {
+      el.textContent = nome;
+    });
+    document.title = nome;
 
     if (config.colors) {
       const root = document.documentElement;

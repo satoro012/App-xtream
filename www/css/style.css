@@ -413,3 +413,16 @@ body {
 /* ===== Barra de progresso nos cards de "continuar assistindo" ===== */
 .cw-progress{ position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.15); }
 .cw-progress-fill{ height: 100%; background: var(--app-accent, var(--accent)); }
+
+/* ===== Legenda do nome abaixo da logo (splash e login) ===== */
+.app-name-caption{
+  font-size: 16px; font-weight: 700; color: var(--text);
+  text-align: center; letter-spacing: -.2px; margin-top: 2px;
+}
+
+/* ===== Corrige emoji/fallback aparecendo por cima da imagem carregada ===== */
+.card-img img{ position: relative; z-index: 2; }
+.card-fallback{ z-index: 1; }
+.fav-btn{ z-index: 3; }
+.cw-img img{ position: relative; z-index: 2; }
+.cw-fallback{ z-index: 1; }

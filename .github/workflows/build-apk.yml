@@ -2,6 +2,11 @@ name: Build APK
 
 on:
   workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: 'Tenant ID do cliente (deixe vazio para usar o do repositorio)'
+        required: false
+        default: ''
   push:
     branches: [ main ]
 
@@ -22,6 +27,13 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Sobrescrever TENANT_ID (build sob demanda)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tenant_id != '' }}
+        run: |
+          sed -i "s/const TENANT_ID = \".*\";/const TENANT_ID = \"${{ inputs.tenant_id }}\";/" www/js/config.js
+          echo "TENANT_ID usado neste build: ${{ inputs.tenant_id }}"
+          grep TENANT_ID www/js/config.js
 
       - name: Adicionar/sincronizar projeto Android
         run: |
