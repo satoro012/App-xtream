@@ -18,10 +18,12 @@ class VideoPlayerPlugin : Plugin() {
             return
         }
         val title = call.getString("title") ?: "Reproduzindo"
+        val isLive = call.getBoolean("isLive") ?: false
 
         val intent = Intent(context, VideoPlayerActivity::class.java)
         intent.putExtra("video_url", url)
         intent.putExtra("video_title", title)
+        intent.putExtra("is_live", isLive)
         activity.startActivity(intent)
 
         call.resolve(JSObject())

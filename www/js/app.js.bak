@@ -10,7 +10,6 @@
     return function () { const a = arguments, self = this; clearTimeout(t); t = setTimeout(() => fn.apply(self, a), ms); };
   }
   const APP_VERSION = '1.0.0';
-  const CW_KEY = 'mvi_continue';
 
   const state = {
     view: 'canais',
@@ -21,55 +20,6 @@
     favTab: 'live',
     lastSeriesId: null
   };
-
-  function recordContinueWatching(kind, id, name, icon) {
-    try {
-      let list = JSON.parse(localStorage.getItem(CW_KEY) || '[]');
-      const sid = String(id);
-      list = list.filter(x => !(x.kind === kind && String(x.id) === sid));
-      list.unshift({ kind, id: sid, name: name || '', icon: icon || '', ts: Date.now() });
-      list = list.slice(0, 24);
-      localStorage.setItem(CW_KEY, JSON.stringify(list));
-    } catch (e) {}
-  }
-
-  function getContinueWatching(kind) {
-    try {
-      const list = JSON.parse(localStorage.getItem(CW_KEY) || '[]');
-      return list.filter(x => x.kind === kind);
-    } catch (e) { return []; }
-  }
-
-  function continueRowHTML(kind, containerId) {
-    const list = getContinueWatching(kind);
-    if (!list.length) return '';
-    const fallback = kind === 'vod' ? '🎬' : '📽️';
-    const cards = list.map(it => `
-      <div class="cw-card" data-cwid="${esc(it.id)}" tabindex="0">
-        <div class="cw-img">
-          ${it.icon ? `<img src="${esc(it.icon)}" loading="lazy" onerror="this.style.display='none'">` : ''}
-          <div class="cw-fallback">${fallback}</div>
-        </div>
-        <div class="cw-title">${esc(it.name)}</div>
-      </div>`).join('');
-    return `
-      <div class="cw-row" id="${containerId}">
-        <div class="cw-heading">Continuar assistindo</div>
-        <div class="cw-scroll">${cards}</div>
-      </div>`;
-  }
-
-  function wireContinueRow(containerId, kind) {
-    const el = $('#' + containerId);
-    if (!el) return;
-    el.addEventListener('click', (ev) => {
-      const card = ev.target.closest('.cw-card');
-      if (!card) return;
-      const id = card.dataset.cwid;
-      if (kind === 'vod') playVod(id, card.querySelector('.cw-title').textContent);
-      else openSeriesDetail(id);
-    });
-  }
 
   function bindLogin() {
     const form = $('#login-form'); const errBox = $('#login-error');
@@ -92,7 +42,7 @@
         const authOk = res && res.user_info && String(res.user_info.auth) === '1';
         if (!authOk) throw new Error('Usuário ou senha inválidos.');
         Storage.saveCredentials(server, user, pass);
-        await enterApp();
+        enterApp();
       } catch (e) {
         const m = (e && e.message) || '';
         if (/failed to fetch|network/i.test(m)) showError('Não foi possível conectar. Verifique o servidor e a internet.');
@@ -107,36 +57,16 @@
     API.setCredentials(c.server, c.user, c.pass);
     try {
       const res = await API.authenticate();
-      if (res && res.user_info && String(res.user_info.auth) === '1') { await enterApp(); return true; }
+      if (res && res.user_info && String(res.user_info.auth) === '1') { enterApp(); return true; }
     } catch (e) {}
     return false;
   }
 
-  async function enterApp() {
+  function enterApp() {
     $('#screen-login').classList.remove('active');
     $('#screen-app').classList.add('active');
-    showContentLoading(true);
-    await loadAllContent();
-    showContentLoading(false);
     switchView('canais');
-  }
-
-  function showContentLoading(show) {
-    let el = $('#content-loading');
-    if (!el) {
-      const cfg = (window.ConfigLoader && ConfigLoader.getConfig) ? ConfigLoader.getConfig() : null;
-      const hasLogo = cfg && cfg.logo_url;
-      el = document.createElement('div');
-      el.id = 'content-loading';
-      el.innerHTML = `
-        <div class="content-loading-inner">
-          ${hasLogo ? `<img src="${esc(cfg.logo_url)}" class="cl-logo" alt="">` : `<div class="cl-logo-fallback">${esc((cfg && cfg.client_name) || 'MeuIPTV')}</div>`}
-          <div class="boot-spinner"></div>
-          <span>Carregando conteúdo...</span>
-        </div>`;
-      document.body.appendChild(el);
-    }
-    el.style.display = show ? 'flex' : 'none';
+    loadAllContent();
   }
 
   const VIEW_TITLES = {
@@ -166,6 +96,8 @@
   }
 
   async function loadAllContent() {
+    const el = $('#view-' + state.view);
+    if (el) el.insertAdjacentHTML('afterbegin', '<div id="loading-content" class="empty">Carregando conteúdo do servidor...</div>');
     try {
       const [lc, ls, vc, vs, sc, ss] = await Promise.all([
         API.getLiveCategories().catch(() => []),
@@ -182,6 +114,7 @@
       state.series.categories = Array.isArray(sc) ? sc : [];
       state.series.streams    = Array.isArray(ss) ? ss : [];
     } catch (e) { console.error(e); }
+    finally { const l = $('#loading-content'); if (l) l.remove(); switchView(state.view); }
   }
 
   function catName(list, id) {
@@ -311,14 +244,12 @@
   function renderFilmes() {
     const el = $('#view-filmes');
     el.innerHTML = `
-      ${continueRowHTML('vod', 'filmes-cw')}
       <div class="toolbar">
         <input type="search" class="search-inp" id="filmes-search" placeholder="Buscar filme..." value="${esc(state.vod.search)}">
         <div class="cat-bar" id="filmes-cats"></div>
       </div>
       <div class="grid" id="filmes-grid"></div>
       <div class="empty" id="filmes-empty" hidden>Nenhum filme encontrado.</div>`;
-    wireContinueRow('filmes-cw', 'vod');
     renderCatBar('#filmes-cats', state.vod.categories, state.vod.filterCat, (cat) => { state.vod.filterCat = cat; renderFilmes(); });
     renderFilmesGrid();
     $('#filmes-search').addEventListener('input', debounce((e) => { state.vod.search = e.target.value; renderFilmesGrid(); }, 220));
@@ -335,14 +266,12 @@
   function renderSeries() {
     const el = $('#view-series');
     el.innerHTML = `
-      ${continueRowHTML('series', 'series-cw')}
       <div class="toolbar">
         <input type="search" class="search-inp" id="series-search" placeholder="Buscar série..." value="${esc(state.series.search)}">
         <div class="cat-bar" id="series-cats"></div>
       </div>
       <div class="grid" id="series-grid"></div>
       <div class="empty" id="series-empty" hidden>Nenhuma série encontrada.</div>`;
-    wireContinueRow('series-cw', 'series');
     renderCatBar('#series-cats', state.series.categories, state.series.filterCat, (cat) => { state.series.filterCat = cat; renderSeries(); });
     renderSeriesGrid();
     $('#series-search').addEventListener('input', debounce((e) => { state.series.search = e.target.value; renderSeriesGrid(); }, 220));
@@ -413,8 +342,7 @@
         item.addEventListener('click', () => {
           const url = API.seriesUrl(item.dataset.ep, item.dataset.ext);
           const label = (title ? title + ' — ' : '') + item.querySelector('span').textContent;
-          recordContinueWatching('series', seriesId, title || label, cover);
-          Player.open(url, label, null, false);
+          Player.open(url, label);
         });
       });
     }
@@ -425,16 +353,14 @@
     if (seasonKeys.length) showSeason(seasonKeys[0]);
   }
 
-  function playLive(id, title) { Player.open(API.liveUrl(id), title || 'Canal ao vivo', null, true); }
+  function playLive(id, title) { Player.open(API.liveUrl(id), title || 'Canal ao vivo'); }
 
   async function playVod(id, title) {
     let ext = 'mp4';
     const item = state.vod.streams.find(x => String(x.stream_id) === String(id));
     if (item && item.container_extension) ext = item.container_extension;
     else { try { const info = await API.getVodInfo(id); if (info && info.movie_data && info.movie_data.container_extension) ext = info.movie_data.container_extension; } catch (e) {} }
-    const icon = item ? (item.stream_icon || item.cover || '') : '';
-    recordContinueWatching('vod', id, title || (item && item.name) || 'Filme', icon);
-    Player.open(API.vodUrl(id, ext), title || 'Filme', null, false);
+    Player.open(API.vodUrl(id, ext), title || 'Filme');
   }
 
   function renderFavoritos() {
@@ -538,10 +464,7 @@
     $('#cfg-refresh').addEventListener('click', async () => {
       state.live.streams = []; state.vod.streams = []; state.series.streams = [];
       state.live.categories = []; state.vod.categories = []; state.series.categories = [];
-      showContentLoading(true);
       await loadAllContent();
-      showContentLoading(false);
-      switchView(state.view);
       alert('Conteúdo atualizado.');
     });
     $('#cfg-clear').addEventListener('click', () => {
@@ -565,17 +488,7 @@
     }
   }
 
-  function hideBootSplash() {
-    const splash = $('#boot-splash');
-    if (splash) {
-      splash.style.opacity = '0';
-      setTimeout(() => { splash.style.display = 'none'; }, 300);
-    }
-  }
-
   async function init() {
-    const cfgOk = await ConfigLoader.carregar();
-    if (!cfgOk) console.warn('Não foi possível carregar configuração do cliente.');
     Player.init();
     bindLogin();
     bindNav();
@@ -585,7 +498,21 @@
       $('#screen-login').classList.add('active');
       $('#screen-app').classList.remove('active');
     }
-    hideBootSplash();
   }
   document.addEventListener('DOMContentLoaded', init);
 })();
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('boot-splash');
+    if (splash) splash.style.display = 'none';
+  }, 500);
+});
+
+// Carrega config do painel (logo, cor, servidor) antes de iniciar o app
+document.addEventListener('DOMContentLoaded', async () => {
+  const ok = await ConfigLoader.carregar();
+  if (!ok) {
+    console.warn('Não foi possível carregar configuração do cliente.');
+  }
+});

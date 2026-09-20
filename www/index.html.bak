@@ -9,14 +9,6 @@
 </head>
 <body>
 
-<div id="boot-splash">
-  <div class="boot-splash-inner">
-    <img id="boot-logo" class="app-logo" alt="logo" style="display:none;">
-    <div class="boot-logo-fallback app-name-label">Meu<span>IPTV</span></div>
-    <div class="boot-spinner"></div>
-  </div>
-</div>
-
 <div id="screen-login" class="screen active">
   <div class="login-wrap">
     <div class="login-logo"><img class="app-logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover;display:none;vertical-align:middle;margin-right:8px;" alt="logo" /><span class="app-name-label login-logo-fallback">Meu<span>IPTV</span></span></div>
@@ -47,7 +39,7 @@
 
 <div id="screen-app" class="screen">
   <header id="topbar">
-    <div class="brand app-name-label">Meu<span>IPTV</span></div>
+    <div class="brand">Meu<span>IPTV</span></div>
     <div id="view-title" class="view-title">Canais</div>
   </header>
 
